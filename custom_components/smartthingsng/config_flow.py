@@ -71,9 +71,7 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 reason="invalid_webhook_url",
                 description_placeholders={
                     "webhook_url": webhook_url,
-                    "component_url": (
-                        "https://www.home-assistant.io/integrations/smartthings/"
-                    ),
+                    "component_url": "https://github.com/dsorlov/smartthingsng#configuration",
                 },
             )
 
@@ -101,7 +99,14 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return self._show_step_pat(errors)
 
         # Setup end-point
-        self.api = SmartThings(async_get_clientsession(self.hass), self.access_token)
+        async def refresh_token_func() -> str:
+            return self.access_token
+        
+        self.api = SmartThings(
+            session=async_get_clientsession(self.hass),
+            refresh_token_function=refresh_token_func,
+            request_timeout=10
+        )
         try:
             app = await find_app(self.hass, self.api)
             if app:
@@ -172,7 +177,7 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             existing_locations = [
                 entry.data[CONF_LOCATION_ID] for entry in self._async_current_entries()
             ]
-            locations = await self.api.locations()
+            locations = await self.api.get_locations()
             locations_options = {
                 location.location_id: location.name
                 for location in locations
@@ -223,9 +228,7 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "token_url": "https://account.smartthings.com/tokens",
-                "component_url": (
-                    "https://www.home-assistant.io/integrations/smartthings/"
-                ),
+                "component_url": "https://github.com/dsorlov/smartthingsng#configuration",
             },
         )
 

@@ -1,0 +1,102 @@
+send_command:
+  name: Send Command
+  description: Send a custom command to a SmartThings device
+  fields:
+    device_id:
+      name: Device ID
+      description: The SmartThings device ID
+      required: true
+      example: "12345678-1234-1234-1234-123456789abc"
+      selector:
+        text:
+    component_id:
+      name: Component ID  
+      description: The component ID (usually "main")
+      required: false
+      default: "main"
+      example: "main"
+      selector:
+        text:
+    capability:
+      name: Capability
+      description: The SmartThings capability name
+      required: true
+      example: "switch"
+      selector:
+        text:
+    command:
+      name: Command
+      description: The command to execute
+      required: true
+      example: "on"
+      selector:
+        text:
+    arguments:
+      name: Arguments
+      description: List of arguments for the command
+      required: false
+      example: [50, "auto"]
+      selector:
+        object:
+
+refresh_device:
+  name: Refresh Device
+  description: Force refresh the status of a SmartThings device
+  fields:
+    device_id:
+      name: Device ID
+      description: The SmartThings device ID
+      required: true
+      example: "12345678-1234-1234-1234-123456789abc"
+      selector:
+        text:
+
+execute_scene:
+  name: Execute Scene
+  description: Execute a SmartThings scene
+  fields:
+    scene_id:
+      name: Scene ID
+      description: The SmartThings scene ID
+      required: true
+      example: "12345678-1234-1234-1234-123456789abc"
+      selector:
+        text:
+
+get_diagnostics:
+  name: Get Diagnostics
+  description: Generate comprehensive SmartThings integration diagnostics report
+  fields:
+    create_notification:
+      name: Create Notification
+      description: Create a persistent notification with the diagnostics summary
+      required: false
+      default: false
+      selector:
+        boolean:
+
+device_health_check:
+  name: Device Health Check
+  description: Perform comprehensive health check on SmartThings devices
+  fields:
+    device_id:
+      name: Device ID
+      description: The SmartThings device ID to check (if not checking all devices)
+      required: false
+      example: "12345678-1234-1234-1234-123456789abc"
+      selector:
+        text:
+    check_all:
+      name: Check All Devices
+      description: Check health of all SmartThings devices
+      required: false
+      default: false
+      selector:
+        boolean:
+    create_notification:
+      name: Create Notification
+      description: Create a persistent notification with the health check summary
+      required: false
+      default: false
+      selector:
+        boolean:

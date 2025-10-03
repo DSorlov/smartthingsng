@@ -18,7 +18,6 @@ from pysmartthings import (
     AppOAuth,
     AppSettings,
     InstalledAppStatus,
-    SmartThings,
     SourceType,
     Subscription,
     SubscriptionEntity,
@@ -313,7 +312,14 @@ async def smartapp_sync_subscriptions(
     devices,
 ):
     """Synchronize subscriptions of an installed up."""
-    api = SmartThings(async_get_clientsession(hass), auth_token)
+    async def refresh_token_func() -> str:
+        return auth_token
+    
+    api = SmartThings(
+        session=async_get_clientsession(hass),
+        refresh_token_function=refresh_token_func,
+        request_timeout=10
+    )
     tasks = []
 
     async def create_subscription(target: str):

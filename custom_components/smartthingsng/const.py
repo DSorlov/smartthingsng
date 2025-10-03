@@ -4,7 +4,7 @@ import re
 
 from homeassistant.const import Platform
 
-DOMAIN = "smartthings"
+DOMAIN = "smartthingsng"
 
 APP_OAUTH_CLIENT_NAME = "Home Assistant"
 APP_OAUTH_SCOPES = ["r:devices:*"]
@@ -19,10 +19,10 @@ CONF_REFRESH_TOKEN = "refresh_token"
 
 DATA_MANAGER = "manager"
 DATA_BROKERS = "brokers"
-EVENT_BUTTON = "smartthings.button"
+EVENT_BUTTON = "smartthingsng.button"
 
-SIGNAL_SMARTTHINGS_UPDATE = "smartthings_update"
-SIGNAL_SMARTAPP_PREFIX = "smartthings_smartap_"
+SIGNAL_SMARTTHINGS_UPDATE = "smartthingsng_update"
+SIGNAL_SMARTAPP_PREFIX = "smartthingsng_smartap_"
 
 SETTINGS_INSTANCE_ID = "hassInstanceId"
 
@@ -34,15 +34,20 @@ STORAGE_VERSION = 1
 # Ordered 'specific to least-specific platform' in order for capabilities
 # to be drawn-down and represented by the most appropriate platform.
 PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
     Platform.CLIMATE,
+    Platform.COVER,
     Platform.FAN,
     Platform.LIGHT,
     Platform.LOCK,
-    Platform.COVER,
-    Platform.SWITCH,
-    Platform.BINARY_SENSOR,
-    Platform.SENSOR,
+    Platform.MEDIA_PLAYER,
+    Platform.NUMBER,
     Platform.SCENE,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+    Platform.VACUUM,
 ]
 
 IGNORED_CAPABILITIES = [

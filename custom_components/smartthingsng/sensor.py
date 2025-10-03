@@ -617,6 +617,70 @@ async def async_setup_entry(
                         for m in maps
                     ]
                 )
+    
+    # Add integration diagnostic sensors (one set per config entry)
+    from datetime import datetime, timezone
+    
+    diagnostic_entities = [
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "device_count", 
+            "Device Count",
+            "mdi:counter",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "healthy_devices",
+            "Healthy Devices", 
+            "mdi:check-circle",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "warning_devices",
+            "Devices with Warnings",
+            "mdi:alert",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "error_devices", 
+            "Devices with Errors",
+            "mdi:alert-circle",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "battery_devices",
+            "Battery-Powered Devices",
+            "mdi:battery",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "low_battery_devices",
+            "Low Battery Devices", 
+            "mdi:battery-alert",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "average_signal_strength",
+            "Average Signal Strength",
+            "mdi:signal",
+            broker
+        ),
+        SmartThingsDiagnosticSensor(
+            config_entry.entry_id,
+            "integration_uptime",
+            "Integration Uptime",
+            "mdi:clock",
+            broker
+        ),
+    ]
+    
+    entities.extend(diagnostic_entities)
 
     async_add_entities(entities)
 
@@ -766,3 +830,170 @@ class SmartThingsPowerConsumptionSensor(SmartThingsEntity, SensorEntity):
                     state_attributes[attribute] = value
             return state_attributes
         return None
+
+
+class SmartThingsDiagnosticSensor(SensorEntity):
+    """Diagnostic sensor for SmartThings integration."""
+
+    def __init__(
+        self,
+        entry_id: str,
+        sensor_key: str,
+        name: str,
+        icon: str,
+        broker
+    ) -> None:
+        """Initialize the diagnostic sensor."""
+        self._entry_id = entry_id
+        self._sensor_key = sensor_key
+        self._broker = broker
+        
+        self._attr_name = f"SmartThings NG {name}"
+        self._attr_unique_id = f"{entry_id}_diagnostics_{sensor_key}"
+        self._attr_icon = icon
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"{entry_id}_diagnostics")},
+            "name": "SmartThings NG Diagnostics",
+            "manufacturer": "SmartThings NG", 
+            "model": "Integration Diagnostics",
+            "sw_version": "1.7.0",
+        }
+        
+        # Track initialization time for uptime calculation
+        from datetime import datetime, timezone
+        self._start_time = datetime.now(timezone.utc)
+
+    @property
+    def native_value(self) -> Any:
+        """Return the state of the diagnostic sensor."""
+        if self._sensor_key == "device_count":
+            return len(self._broker.devices)
+            
+        elif self._sensor_key == "healthy_devices":
+            return self._count_devices_by_health("ok")
+            
+        elif self._sensor_key == "warning_devices":
+            return self._count_devices_by_health("warning")
+            
+        elif self._sensor_key == "error_devices":
+            return (self._count_devices_by_health("error") + 
+                   self._count_devices_by_health("unavailable"))
+            
+        elif self._sensor_key == "battery_devices":
+            return sum(1 for device in self._broker.devices.values() 
+                      if hasattr(device.status, 'battery') and device.status.battery is not None)
+            
+        elif self._sensor_key == "low_battery_devices":
+            return sum(1 for device in self._broker.devices.values()
+                      if hasattr(device.status, 'battery') 
+                      and device.status.battery is not None 
+                      and device.status.battery < 25)
+            
+        elif self._sensor_key == "average_signal_strength":
+            signal_strengths = []
+            for device in self._broker.devices.values():
+                signal = (getattr(device.status, 'lqi', None) or 
+                         getattr(device.status, 'rssi', None))
+                if signal is not None and isinstance(signal, (int, float)):
+                    signal_strengths.append(signal)
+            return (round(sum(signal_strengths) / len(signal_strengths), 1) 
+                   if signal_strengths else None)
+            
+        elif self._sensor_key == "integration_uptime":
+            from datetime import datetime, timezone
+            uptime = datetime.now(timezone.utc) - self._start_time
+            return int(uptime.total_seconds())
+            
+        return None
+
+    def _count_devices_by_health(self, health_status: str) -> int:
+        """Count devices by health status."""
+        count = 0
+        for device in self._broker.devices.values():
+            device_health = self._get_device_health(device)
+            if device_health == health_status:
+                count += 1
+        return count
+
+    def _get_device_health(self, device) -> str:
+        """Get health status for a device."""
+        # Check availability first
+        if (hasattr(device.status, 'switch_state') and 
+            device.status.switch_state == "unavailable"):
+            return "unavailable"
+        
+        # Check battery health
+        if hasattr(device.status, 'battery'):
+            battery_level = device.status.battery
+            if battery_level is not None and battery_level < 10:
+                return "error"
+            elif battery_level is not None and battery_level < 25:
+                return "warning"
+        
+        # Check signal strength
+        signal_strength = (getattr(device.status, 'lqi', None) or 
+                          getattr(device.status, 'rssi', None))
+        if (signal_strength is not None and isinstance(signal_strength, (int, float)) and 
+            signal_strength < 30):
+            return "warning"
+        
+        return "ok"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        from datetime import datetime, timezone
+        
+        attributes = {
+            "integration_version": "1.7.0",
+            "entry_id": self._entry_id,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "total_devices": len(self._broker.devices),
+        }
+        
+        # Add detailed breakdown for specific sensors
+        if self._sensor_key == "device_count":
+            # Add device type breakdown
+            device_types = {}
+            for device in self._broker.devices.values():
+                device_type = device.type or "Unknown"
+                device_types[device_type] = device_types.get(device_type, 0) + 1
+            attributes["device_types"] = device_types
+            
+        elif self._sensor_key == "battery_devices":
+            # Add battery level distribution
+            battery_levels = {"critical": 0, "low": 0, "medium": 0, "good": 0}
+            for device in self._broker.devices.values():
+                if hasattr(device.status, 'battery') and device.status.battery is not None:
+                    level = device.status.battery
+                    if level < 10:
+                        battery_levels["critical"] += 1
+                    elif level < 25:
+                        battery_levels["low"] += 1
+                    elif level < 50:
+                        battery_levels["medium"] += 1
+                    else:
+                        battery_levels["good"] += 1
+            attributes["battery_distribution"] = battery_levels
+            
+        elif self._sensor_key == "average_signal_strength":
+            # Add signal quality distribution  
+            signal_qualities = {"poor": 0, "fair": 0, "good": 0, "unknown": 0}
+            for device in self._broker.devices.values():
+                signal = (getattr(device.status, 'lqi', None) or 
+                         getattr(device.status, 'rssi', None))
+                if signal is not None and isinstance(signal, (int, float)):
+                    if signal < 30:
+                        signal_qualities["poor"] += 1
+                    elif signal < 60:
+                        signal_qualities["fair"] += 1
+                    else:
+                        signal_qualities["good"] += 1
+                else:
+                    signal_qualities["unknown"] += 1
+            attributes["signal_distribution"] = signal_qualities
+            
+        return attributes
