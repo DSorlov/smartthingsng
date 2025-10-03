@@ -18,7 +18,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 from pysmartthings import Attribute, Capability
-from pysmartthings.device import DeviceEntity
+from pysmartthings import Device
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN
@@ -683,7 +683,7 @@ class SmartThingsSensor(SmartThingsEntity, SensorEntity):
 
     def __init__(
         self,
-        device: DeviceEntity,
+        device: Device,
         component: str,
         attribute: str,
         name: str,
@@ -756,7 +756,7 @@ class SmartThingsPowerConsumptionSensor(SmartThingsEntity, SensorEntity):
 
     def __init__(
         self,
-        device: DeviceEntity,
+        device: Device,
         component: str,
         report_name: str,
     ) -> None:

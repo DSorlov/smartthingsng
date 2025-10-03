@@ -19,13 +19,9 @@ from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.storage import Store
 from pysmartapp import Dispatcher, SmartAppManager
 from pysmartapp.const import SETTINGS_APP_ID
-from pysmartthings import (APP_TYPE_WEBHOOK, CAPABILITIES,
-                           CLASSIFICATION_AUTOMATION, App, AppOAuth,
-                           AppSettings, InstalledAppStatus, SourceType,
-                           Subscription, SubscriptionEntity)
+from pysmartthings import (SmartThings, SmartThingsError)
 
-from .const import (APP_NAME_PREFIX, APP_OAUTH_CLIENT_NAME, APP_OAUTH_SCOPES,
-                    CONF_CLOUDHOOK_URL, CONF_INSTALLED_APP_ID,
+from .const import (APP_NAME_PREFIX, CONF_CLOUDHOOK_URL, CONF_INSTALLED_APP_ID,
                     CONF_INSTANCE_ID, CONF_REFRESH_TOKEN, DATA_BROKERS,
                     DATA_MANAGER, DOMAIN, IGNORED_CAPABILITIES,
                     SETTINGS_INSTANCE_ID, SIGNAL_SMARTAPP_PREFIX, STORAGE_KEY,
@@ -113,31 +109,12 @@ def _get_app_template(hass: HomeAssistant):
 
 
 async def create_app(hass: HomeAssistant, api):
-    """Create a SmartApp for this instance of hass."""
-    # Create app from template attributes
-    template = _get_app_template(hass)
-    app = App()
-    for key, value in template.items():
-        setattr(app, key, value)
-    app, client = await api.create_app(app)
-    _LOGGER.debug("Created SmartApp '%s' (%s)", app.app_name, app.app_id)
-
-    # Set unique hass id in settings
-    settings = AppSettings(app.app_id)
-    settings.settings[SETTINGS_APP_ID] = app.app_id
-    settings.settings[SETTINGS_INSTANCE_ID] = hass.data[DOMAIN][CONF_INSTANCE_ID]
-    await api.update_app_settings(settings)
-    _LOGGER.debug(
-        "Updated App Settings for SmartApp '%s' (%s)", app.app_name, app.app_id
+    """Create a SmartApp - deprecated in pysmartthings 3.3.0+."""
+    raise NotImplementedError(
+        "SmartApp creation is no longer supported in pysmartthings 3.3.0+. "
+        "Please create your SmartApp manually through the SmartThings Developer Portal "
+        "and provide the App ID during setup."
     )
-
-    # Set oauth scopes
-    oauth = AppOAuth(app.app_id)
-    oauth.client_name = APP_OAUTH_CLIENT_NAME
-    oauth.scope.extend(APP_OAUTH_SCOPES)
-    await api.update_app_oauth(oauth)
-    _LOGGER.debug("Updated App OAuth for SmartApp '%s' (%s)", app.app_name, app.app_id)
-    return app, client
 
 
 async def update_app(hass: HomeAssistant, app):
@@ -170,7 +147,8 @@ def setup_smartapp(hass, app):
     smartapp = manager.register(app.app_id, app.webhook_public_key)
     smartapp.name = app.display_name
     smartapp.description = app.description
-    smartapp.permissions.extend(APP_OAUTH_SCOPES)
+    # Note: permissions/scopes are handled by the SmartApp configuration
+    # in the SmartThings Developer Portal, not here
     return smartapp
 
 

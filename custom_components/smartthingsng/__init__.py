@@ -25,8 +25,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 from pysmartapp.event import EVENT_TYPE_DEVICE
-from pysmartthings import Attribute, Capability, SmartThings
-from pysmartthings.device import DeviceEntity
+from pysmartthings import Attribute, Capability, Device, SmartThings
 
 from .config_flow import SmartThingsFlowHandler  # noqa: F401
 from .const import (CONF_APP_ID, CONF_INSTALLED_APP_ID, CONF_LOCATION_ID,
@@ -902,7 +901,7 @@ class SmartThingsEntity(Entity):
 
     _attr_should_poll = False
 
-    def __init__(self, device: DeviceEntity) -> None:
+    def __init__(self, device: Device) -> None:
         """Initialize the instance."""
         self._device = device
         self._dispatcher_remove = None

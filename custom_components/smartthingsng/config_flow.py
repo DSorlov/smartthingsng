@@ -9,11 +9,9 @@ from homeassistant import config_entries
 from homeassistant.const import (CONF_ACCESS_TOKEN, CONF_CLIENT_ID,
                                  CONF_CLIENT_SECRET)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from pysmartthings import APIResponseError, AppOAuth, SmartThings
-from pysmartthings.installedapp import format_install_url
+from pysmartthings import SmartThings, SmartThingsError
 
-from .const import (APP_OAUTH_CLIENT_NAME, APP_OAUTH_SCOPES, CONF_APP_ID,
-                    CONF_INSTALLED_APP_ID, CONF_LOCATION_ID,
+from .const import (CONF_APP_ID, CONF_INSTALLED_APP_ID, CONF_LOCATION_ID,
                     CONF_REFRESH_TOKEN, DOMAIN, VAL_UID_MATCHER)
 from .smartapp import (create_app, find_app, format_unique_id, get_webhook_url,
                        setup_smartapp, setup_smartapp_endpoint, update_app,
@@ -95,38 +93,17 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             request_timeout=10,
         )
         try:
-            app = await find_app(self.hass, self.api)
-            if app:
-                await app.refresh()  # load all attributes
-                await update_app(self.hass, app)
-                # Find an existing entry to copy the oauth client
-                existing = next(
-                    (
-                        entry
-                        for entry in self._async_current_entries()
-                        if entry.data[CONF_APP_ID] == app.app_id
-                    ),
-                    None,
-                )
-                if existing:
-                    self.oauth_client_id = existing.data[CONF_CLIENT_ID]
-                    self.oauth_client_secret = existing.data[CONF_CLIENT_SECRET]
-                else:
-                    # Get oauth client id/secret by regenerating it
-                    app_oauth = AppOAuth(app.app_id)
-                    app_oauth.client_name = APP_OAUTH_CLIENT_NAME
-                    app_oauth.scope.extend(APP_OAUTH_SCOPES)
-                    client = await self.api.generate_app_oauth(app_oauth)
-                    self.oauth_client_secret = client.client_secret
-                    self.oauth_client_id = client.client_id
-            else:
-                app, client = await create_app(self.hass, self.api)
-                self.oauth_client_secret = client.client_secret
-                self.oauth_client_id = client.client_id
-            setup_smartapp(self.hass, app)
-            self.app_id = app.app_id
+            # Note: SmartApp creation and OAuth setup was removed in pysmartthings 3.3.0
+            # Users must manually create SmartApps via SmartThings Developer Portal
+            # For now, we'll validate the personal access token works
+            devices = await self.api.devices()
+            _LOGGER.info(f"Successfully authenticated with {len(devices)} devices")
+            
+            # TODO: Implement SmartApp configuration for webhooks
+            # This will require manual SmartApp setup by the user
+            self.app_id = None  # Will be configured manually later
 
-        except APIResponseError as ex:
+        except SmartThingsError as ex:
             if ex.is_target_error():
                 errors["base"] = "webhook_error"
             else:
