@@ -1,5 +1,4 @@
 {
-  "version": "1.7.0",
   "domain": "smartthingsng",
   "name": "SmartThings NG",
   "after_dependencies": ["cloud"],
@@ -29,8 +28,9 @@
     }
   ],
   "documentation": "https://github.com/dsorlov/smartthingsng",
-  "issue_tracker": "https://github.com/dsorlov/smartthingsng/issues",
   "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/dsorlov/smartthingsng/issues",
   "loggers": ["httpsig", "pysmartapp", "pysmartthings"],
-  "requirements": ["pysmartapp==0.3.5", "pysmartthings==3.3.0"]
+  "requirements": ["pysmartapp==0.3.5", "pysmartthings==3.3.0"],
+  "version": "1.7.0"
 }
