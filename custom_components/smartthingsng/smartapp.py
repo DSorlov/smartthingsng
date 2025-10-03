@@ -19,7 +19,9 @@ from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.storage import Store
 from pysmartapp import Dispatcher, SmartAppManager
 from pysmartapp.const import SETTINGS_APP_ID
-from pysmartthings import (SmartThings, SmartThingsError)
+from pysmartthings import SmartThings, SmartThingsError
+import json
+from aiohttp import ClientResponseError
 
 from .const import (APP_NAME_PREFIX, CONF_CLOUDHOOK_URL, CONF_INSTALLED_APP_ID,
                     CONF_INSTANCE_ID, CONF_REFRESH_TOKEN, DATA_BROKERS,
@@ -36,16 +38,57 @@ def format_unique_id(app_id: str, location_id: str) -> str:
 
 
 async def find_app(hass: HomeAssistant, api):
-    """Find an existing SmartApp for this installation of hass."""
-    apps = await api.apps()
-    for app in [app for app in apps if app.app_name.startswith(APP_NAME_PREFIX)]:
-        # Load settings to compare instance id
-        settings = await app.settings()
-        if (
-            settings.settings.get(SETTINGS_INSTANCE_ID)
-            == hass.data[DOMAIN][CONF_INSTANCE_ID]
-        ):
-            return app
+    """Find an existing SmartApp for this installation of hass using direct API calls."""
+    # Make direct API call to list apps
+    headers = {
+        "Authorization": f"Bearer {await api.refresh_token()}",
+        "Content-Type": "application/json"
+    }
+    
+    async with api.session.get(
+        "https://api.smartthings.com/v1/apps",
+        headers=headers,
+        timeout=api.request_timeout
+    ) as response:
+        if response.status != 200:
+            error_text = await response.text()
+            raise SmartThingsError(f"Failed to list SmartApps: {response.status} - {error_text}")
+        
+        apps_data = await response.json()
+        
+        for app_data in apps_data.get("items", []):
+            if app_data.get("appName", "").startswith(APP_NAME_PREFIX):
+                # Check app settings to verify it matches this hass instance
+                app_id = app_data["appId"]
+                
+                async with api.session.get(
+                    f"https://api.smartthings.com/v1/apps/{app_id}/settings",
+                    headers=headers,
+                    timeout=api.request_timeout
+                ) as settings_response:
+                    if settings_response.status == 200:
+                        settings_data = await settings_response.json()
+                        settings = settings_data.get("settings", {})
+                        
+                        if (settings.get(SETTINGS_INSTANCE_ID) == 
+                            hass.data[DOMAIN][CONF_INSTANCE_ID]):
+                            
+                            # Create a simple app object
+                            class SimpleApp:
+                                def __init__(self, app_data):
+                                    self.app_id = app_data["appId"]
+                                    self.app_name = app_data["appName"]
+                                    self.display_name = app_data["displayName"]
+                                    self.description = app_data["description"]
+                                    webhook_config = app_data.get("webhookSmartApp", {})
+                                    self.webhook_public_key = webhook_config.get("publicKey", "")
+                                
+                                async def refresh(self):
+                                    """Placeholder refresh method."""
+                                    pass
+                            
+                            return SimpleApp(app_data)
+    return None
 
 
 async def validate_installed_app(api, installed_app_id: str):
@@ -109,28 +152,97 @@ def _get_app_template(hass: HomeAssistant):
 
 
 async def create_app(hass: HomeAssistant, api):
-    """Create a SmartApp - deprecated in pysmartthings 3.3.0+."""
-    raise NotImplementedError(
-        "SmartApp creation is no longer supported in pysmartthings 3.3.0+. "
-        "Please create your SmartApp manually through the SmartThings Developer Portal "
-        "and provide the App ID during setup."
-    )
+    """Create a SmartApp using direct REST API calls."""
+    # Get the webhook URL for this hass instance
+    webhook_url = get_webhook_url(hass)
+    
+    # Create the app payload
+    app_template = _get_app_template(hass)
+    app_data = {
+        "appName": app_template["app_name"],
+        "displayName": app_template["display_name"],
+        "description": app_template["description"],
+        "appType": "WEBHOOK_SMART_APP",
+        "webhookSmartApp": {
+            "targetUrl": webhook_url,
+            "publicKey": app_template.get("webhook_public_key", "")
+        }
+    }
+    
+    # Make direct API call to create the app
+    headers = {
+        "Authorization": f"Bearer {await api.refresh_token()}",
+        "Content-Type": "application/json"
+    }
+    
+    async with api.session.post(
+        "https://api.smartthings.com/v1/apps",
+        json=app_data,
+        headers=headers,
+        timeout=api.request_timeout
+    ) as response:
+        if response.status not in [200, 201]:
+            error_text = await response.text()
+            raise SmartThingsError(f"Failed to create SmartApp: {response.status} - {error_text}")
+        
+        app_response = await response.json()
+        app_id = app_response["appId"]
+        
+        _LOGGER.debug("Created SmartApp '%s' (%s)", app_data["displayName"], app_id)
+        
+        # Create a simple app object with the necessary attributes
+        class SimpleApp:
+            def __init__(self, app_data):
+                self.app_id = app_data["appId"]
+                self.app_name = app_data["appName"]
+                self.display_name = app_data["displayName"]
+                self.description = app_data["description"]
+                self.webhook_public_key = app_data.get("webhookSmartApp", {}).get("publicKey", "")
+        
+        return SimpleApp(app_response), None
 
 
-async def update_app(hass: HomeAssistant, app):
+async def update_app(hass: HomeAssistant, app, api=None):
     """Ensure the SmartApp is up-to-date and update if necessary."""
     template = _get_app_template(hass)
     template.pop("app_name")  # don't update this
+    
+    # Check if update is needed by comparing current values
     update_required = False
-    for key, value in template.items():
-        if getattr(app, key) != value:
-            update_required = True
-            setattr(app, key, value)
-    if update_required:
-        await app.save()
-        _LOGGER.debug(
-            "SmartApp '%s' (%s) updated with latest settings", app.app_name, app.app_id
-        )
+    update_data = {}
+    
+    if hasattr(app, 'display_name') and app.display_name != template.get("display_name"):
+        update_data["displayName"] = template["display_name"]
+        update_required = True
+    
+    if hasattr(app, 'description') and app.description != template.get("description"):
+        update_data["description"] = template["description"]
+        update_required = True
+    
+    if update_required and api:
+        # Make direct API call to update the app
+        headers = {
+            "Authorization": f"Bearer {await api.refresh_token()}",
+            "Content-Type": "application/json"
+        }
+        
+        async with api.session.put(
+            f"https://api.smartthings.com/v1/apps/{app.app_id}",
+            json=update_data,
+            headers=headers,
+            timeout=api.request_timeout
+        ) as response:
+            if response.status == 200:
+                _LOGGER.debug(
+                    "SmartApp '%s' (%s) updated with latest settings", 
+                    app.app_name, app.app_id
+                )
+            else:
+                error_text = await response.text()
+                _LOGGER.warning(
+                    "Failed to update SmartApp '%s' (%s): %s", 
+                    app.app_name, app.app_id, error_text
+                )
 
 
 def setup_smartapp(hass, app):

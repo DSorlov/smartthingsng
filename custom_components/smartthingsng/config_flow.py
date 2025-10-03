@@ -93,15 +93,23 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             request_timeout=10,
         )
         try:
-            # Note: SmartApp creation and OAuth setup was removed in pysmartthings 3.3.0
-            # Users must manually create SmartApps via SmartThings Developer Portal
-            # For now, we'll validate the personal access token works
-            devices = await self.api.devices()
-            _LOGGER.info(f"Successfully authenticated with {len(devices)} devices")
+            # Find or create SmartApp using direct REST API calls
+            app = await find_app(self.hass, self.api)
+            if app:
+                await app.refresh()  # load all attributes
+                await update_app(self.hass, app, self.api)
+                # For now, we'll use the personal access token for authentication
+                # OAuth client setup would require additional API calls
+                self.oauth_client_id = "personal_access_token"
+                self.oauth_client_secret = "not_used_with_pat"
+            else:
+                app, client = await create_app(self.hass, self.api)
+                # With personal access tokens, we don't get OAuth credentials
+                self.oauth_client_id = "personal_access_token"
+                self.oauth_client_secret = "not_used_with_pat"
             
-            # TODO: Implement SmartApp configuration for webhooks
-            # This will require manual SmartApp setup by the user
-            self.app_id = None  # Will be configured manually later
+            setup_smartapp(self.hass, app)
+            self.app_id = app.app_id
 
         except SmartThingsError as ex:
             if ex.is_target_error():
