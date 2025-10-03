@@ -29,6 +29,7 @@
     }
   ],
   "documentation": "https://github.com/dsorlov/smartthingsng",
+  "issue_tracker": "https://github.com/dsorlov/smartthingsng/issues",
   "iot_class": "cloud_push",
   "loggers": ["httpsig", "pysmartapp", "pysmartthings"],
   "requirements": ["pysmartapp==0.3.5", "pysmartthings==3.3.0"]
