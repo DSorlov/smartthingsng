@@ -1,15 +1,15 @@
 """Support for select entities through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
 
-from pysmartthings import Attribute, Capability
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Attribute, Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN
@@ -69,14 +69,14 @@ async def async_setup_entry(
     """Add select entities for a config entry."""
     broker = hass.data[DOMAIN][DATA_BROKERS][config_entry.entry_id]
     selects = []
-    
+
     for device in broker.devices.values():
         device_capabilities_for_select = broker.get_assigned(device.device_id, "select")
-        
+
         for capability in device_capabilities_for_select:
             if capability not in CAPABILITY_TO_SELECT:
                 continue
-            
+
             config = CAPABILITY_TO_SELECT[capability]
             selects.append(
                 SmartThingsSelect(
@@ -88,16 +88,14 @@ async def async_setup_entry(
                     config["icon"],
                 )
             )
-    
+
     async_add_entities(selects)
 
 
 def get_capabilities(capabilities: Sequence[str]) -> Sequence[str] | None:
     """Return all capabilities supported if minimum required are present."""
     supported = [
-        capability
-        for capability in CAPABILITY_TO_SELECT
-        if capability in capabilities
+        capability for capability in CAPABILITY_TO_SELECT if capability in capabilities
     ]
     return supported if supported else None
 
@@ -127,12 +125,9 @@ class SmartThingsSelect(SmartThingsEntity, SelectEntity):
         """Change the selected option."""
         # Use the device command to set the mode/option
         result = await self._device.command(
-            "main",
-            self._capability,
-            self._command,
-            [option]
+            "main", self._capability, self._command, [option]
         )
-        
+
         if result:
             # Update the status optimistically
             self._device.status.update_attribute_value(self._attribute, option)
@@ -148,18 +143,18 @@ class SmartThingsSelect(SmartThingsEntity, SelectEntity):
         """Return the list of available options."""
         # Get supported modes from device status
         supported_attr = f"supported_{self._attribute}s"
-        
+
         # Try to get supported options from device
         supported = getattr(self._device.status, supported_attr, None)
-        
+
         if supported and isinstance(supported, list):
             return supported
-        
+
         # Fallback to getting from attributes if available
         attr_obj = self._device.status.attributes.get(self._attribute)
         if attr_obj and hasattr(attr_obj, "values") and attr_obj.values:
             return list(attr_obj.values)
-        
+
         # Last resort - return current value as single option
         current = self.current_option
         return [current] if current else []

@@ -1,18 +1,16 @@
 """Support for vacuum entities through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from pysmartthings import Attribute, Capability
-
-from homeassistant.components.vacuum import (
-    StateVacuumEntity,
-    VacuumEntityFeature,
-)
+from homeassistant.components.vacuum import (StateVacuumEntity,
+                                             VacuumEntityFeature)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Attribute, Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN
@@ -51,15 +49,15 @@ CAPABILITY_TO_VACUUM = {
 
 # SmartThings robot cleaner state mappings
 ST_STATE_MAP = {
-    # Movement states  
+    # Movement states
     "homing": "returning",
-    "charging": "docked", 
+    "charging": "docked",
     "cleaning": "cleaning",
     "idle": "idle",
     "paused": "paused",
     # Cleaning mode states
     "auto": "cleaning",
-    "spot": "cleaning", 
+    "spot": "cleaning",
     "edge": "cleaning",
     "single": "cleaning",
     "stop": "idle",
@@ -69,7 +67,7 @@ ST_STATE_MAP = {
 # Available fan speeds/cleaning modes
 FAN_SPEED_MAP = {
     "auto": "Auto",
-    "quiet": "Quiet", 
+    "quiet": "Quiet",
     "standard": "Standard",
     "medium": "Medium",
     "high": "High",
@@ -102,9 +100,7 @@ async def async_setup_entry(
 
 def get_vacuum_capabilities(capabilities: list[str]) -> list[str] | None:
     """Return vacuum capabilities if device supports vacuum functions."""
-    vacuum_capabilities = [
-        cap for cap in capabilities if cap in CAPABILITY_TO_VACUUM
-    ]
+    vacuum_capabilities = [cap for cap in capabilities if cap in CAPABILITY_TO_VACUUM]
     return vacuum_capabilities if vacuum_capabilities else None
 
 
@@ -115,15 +111,15 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
         """Initialize the vacuum entity."""
         super().__init__(device)
         self._capabilities = capabilities
-        
+
         # Determine primary capability for naming and features
         self._primary_capability = self._get_primary_capability()
         config = CAPABILITY_TO_VACUUM[self._primary_capability]
-        
+
         self._attr_name = f"{device.label} {config['name']}"
         self._attr_icon = config["icon"]
         self._attr_supported_features = self._get_supported_features()
-        
+
         # Set available fan speeds based on device capabilities
         self._attr_fan_speed_list = self._get_available_fan_speeds()
 
@@ -137,32 +133,32 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
     def _get_supported_features(self) -> VacuumEntityFeature:
         """Determine supported features based on available capabilities."""
         features = VacuumEntityFeature(0)
-        
+
         for capability in self._capabilities:
             if capability in CAPABILITY_TO_VACUUM:
                 cap_features = CAPABILITY_TO_VACUUM[capability]["features"]
                 for feature in cap_features:
                     features |= feature
-                    
+
         # Always add basic state tracking
         features |= VacuumEntityFeature.STATE
-        
+
         return features
 
     def _get_available_fan_speeds(self) -> list[str]:
         """Get available fan speeds/cleaning modes for this vacuum."""
         speeds = []
-        
+
         # Check if device supports turbo mode
         if Capability.robot_cleaner_turbo_mode in self._device.capabilities:
             speeds.extend(["quiet", "standard", "turbo"])
         else:
             speeds.extend(["quiet", "standard", "high"])
-            
+
         # Check if device supports different cleaning modes
         if Capability.robot_cleaner_cleaning_mode in self._capabilities:
             speeds.extend(["auto", "spot", "edge"])
-            
+
         return [FAN_SPEED_MAP.get(speed, speed.title()) for speed in speeds]
 
     @property
@@ -170,16 +166,20 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
         """Return the current state of the vacuum."""
         # Check movement state first
         if Capability.robot_cleaner_movement in self._device.capabilities:
-            movement = getattr(self._device.status, Attribute.robot_cleaner_movement, None)
+            movement = getattr(
+                self._device.status, Attribute.robot_cleaner_movement, None
+            )
             if movement and movement in ST_STATE_MAP:
                 return ST_STATE_MAP[movement]
-        
+
         # Check cleaning mode state
         if Capability.robot_cleaner_cleaning_mode in self._device.capabilities:
-            mode = getattr(self._device.status, Attribute.robot_cleaner_cleaning_mode, None)
+            mode = getattr(
+                self._device.status, Attribute.robot_cleaner_cleaning_mode, None
+            )
             if mode and mode in ST_STATE_MAP:
                 return ST_STATE_MAP[mode]
-                
+
         return "idle"
 
     @property
@@ -194,41 +194,51 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
         """Return the current fan speed."""
         # Check turbo mode first
         if Capability.robot_cleaner_turbo_mode in self._device.capabilities:
-            turbo = getattr(self._device.status, Attribute.robot_cleaner_turbo_mode, None)
+            turbo = getattr(
+                self._device.status, Attribute.robot_cleaner_turbo_mode, None
+            )
             if turbo == "on":
                 return "Turbo"
-        
-        # Check cleaning mode 
+
+        # Check cleaning mode
         if Capability.robot_cleaner_cleaning_mode in self._device.capabilities:
-            mode = getattr(self._device.status, Attribute.robot_cleaner_cleaning_mode, None)
+            mode = getattr(
+                self._device.status, Attribute.robot_cleaner_cleaning_mode, None
+            )
             if mode and mode in FAN_SPEED_MAP:
                 return FAN_SPEED_MAP[mode]
-                
+
         return "Standard"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
         attributes = {}
-        
+
         # Add current cleaning mode
         if Capability.robot_cleaner_cleaning_mode in self._device.capabilities:
-            mode = getattr(self._device.status, Attribute.robot_cleaner_cleaning_mode, None)
+            mode = getattr(
+                self._device.status, Attribute.robot_cleaner_cleaning_mode, None
+            )
             attributes["cleaning_mode"] = mode
-            
+
         # Add movement status
         if Capability.robot_cleaner_movement in self._device.capabilities:
-            movement = getattr(self._device.status, Attribute.robot_cleaner_movement, None)
+            movement = getattr(
+                self._device.status, Attribute.robot_cleaner_movement, None
+            )
             attributes["movement_status"] = movement
-            
+
         # Add turbo mode status
         if Capability.robot_cleaner_turbo_mode in self._device.capabilities:
-            turbo = getattr(self._device.status, Attribute.robot_cleaner_turbo_mode, None)
+            turbo = getattr(
+                self._device.status, Attribute.robot_cleaner_turbo_mode, None
+            )
             attributes["turbo_mode"] = turbo
-            
+
         # Add device capabilities for debugging
         attributes["vacuum_capabilities"] = self._capabilities
-        
+
         return attributes
 
     async def async_start(self) -> None:
@@ -237,29 +247,31 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
             if Capability.robot_cleaner_cleaning_mode in self._capabilities:
                 # Use cleaning mode capability for start command
                 result = await self._device.command(
-                    "main", 
+                    "main",
                     Capability.robot_cleaner_cleaning_mode,
                     "setRobotCleanerCleaningMode",
-                    ["auto"]
+                    ["auto"],
                 )
             elif Capability.robot_cleaner_movement in self._capabilities:
                 # Use movement capability for start command
                 result = await self._device.command(
                     "main",
-                    Capability.robot_cleaner_movement, 
+                    Capability.robot_cleaner_movement,
                     "setRobotCleanerMovement",
-                    ["cleaning"]
+                    ["cleaning"],
                 )
             else:
-                _LOGGER.error("No suitable capability for start command on %s", self.entity_id)
+                _LOGGER.error(
+                    "No suitable capability for start command on %s", self.entity_id
+                )
                 return
-                
+
             if result:
                 _LOGGER.debug("Successfully started vacuum %s", self.entity_id)
                 self.async_write_ha_state()
             else:
                 _LOGGER.error("Failed to start vacuum %s", self.entity_id)
-                
+
         except Exception as ex:
             _LOGGER.error("Error starting vacuum %s: %s", self.entity_id, ex)
 
@@ -270,26 +282,28 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
                 result = await self._device.command(
                     "main",
                     Capability.robot_cleaner_cleaning_mode,
-                    "setRobotCleanerCleaningMode", 
-                    ["pause"]
+                    "setRobotCleanerCleaningMode",
+                    ["pause"],
                 )
             elif Capability.robot_cleaner_movement in self._capabilities:
                 result = await self._device.command(
                     "main",
                     Capability.robot_cleaner_movement,
                     "setRobotCleanerMovement",
-                    ["paused"]
+                    ["paused"],
                 )
             else:
-                _LOGGER.error("No suitable capability for pause command on %s", self.entity_id)
+                _LOGGER.error(
+                    "No suitable capability for pause command on %s", self.entity_id
+                )
                 return
-                
+
             if result:
                 _LOGGER.debug("Successfully paused vacuum %s", self.entity_id)
                 self.async_write_ha_state()
             else:
                 _LOGGER.error("Failed to pause vacuum %s", self.entity_id)
-                
+
         except Exception as ex:
             _LOGGER.error("Error pausing vacuum %s: %s", self.entity_id, ex)
 
@@ -301,25 +315,27 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
                     "main",
                     Capability.robot_cleaner_cleaning_mode,
                     "setRobotCleanerCleaningMode",
-                    ["stop"]
+                    ["stop"],
                 )
             elif Capability.robot_cleaner_movement in self._capabilities:
                 result = await self._device.command(
-                    "main", 
+                    "main",
                     Capability.robot_cleaner_movement,
                     "setRobotCleanerMovement",
-                    ["idle"]
+                    ["idle"],
                 )
             else:
-                _LOGGER.error("No suitable capability for stop command on %s", self.entity_id)
+                _LOGGER.error(
+                    "No suitable capability for stop command on %s", self.entity_id
+                )
                 return
-                
+
             if result:
                 _LOGGER.debug("Successfully stopped vacuum %s", self.entity_id)
                 self.async_write_ha_state()
             else:
                 _LOGGER.error("Failed to stop vacuum %s", self.entity_id)
-                
+
         except Exception as ex:
             _LOGGER.error("Error stopping vacuum %s: %s", self.entity_id, ex)
 
@@ -329,29 +345,41 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
             if Capability.robot_cleaner_cleaning_mode in self._capabilities:
                 result = await self._device.command(
                     "main",
-                    Capability.robot_cleaner_cleaning_mode, 
+                    Capability.robot_cleaner_cleaning_mode,
                     "setRobotCleanerCleaningMode",
-                    ["homing"]
+                    ["homing"],
                 )
             elif Capability.robot_cleaner_movement in self._capabilities:
                 result = await self._device.command(
                     "main",
                     Capability.robot_cleaner_movement,
-                    "setRobotCleanerMovement", 
-                    ["homing"]
+                    "setRobotCleanerMovement",
+                    ["homing"],
                 )
             else:
-                _LOGGER.error("No suitable capability for return to base command on %s", self.entity_id)
+                _LOGGER.error(
+                    "No suitable capability for return to base command on %s",
+                    self.entity_id,
+                )
                 return
-                
+
             if result:
-                _LOGGER.debug("Successfully sent return to base command to vacuum %s", self.entity_id)
+                _LOGGER.debug(
+                    "Successfully sent return to base command to vacuum %s",
+                    self.entity_id,
+                )
                 self.async_write_ha_state()
             else:
-                _LOGGER.error("Failed to send return to base command to vacuum %s", self.entity_id)
-                
+                _LOGGER.error(
+                    "Failed to send return to base command to vacuum %s", self.entity_id
+                )
+
         except Exception as ex:
-            _LOGGER.error("Error sending return to base command to vacuum %s: %s", self.entity_id, ex)
+            _LOGGER.error(
+                "Error sending return to base command to vacuum %s: %s",
+                self.entity_id,
+                ex,
+            )
 
     async def async_set_fan_speed(self, fan_speed: str, **kwargs: Any) -> None:
         """Set fan speed."""
@@ -362,47 +390,62 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
                 if display == fan_speed:
                     internal_mode = mode
                     break
-            
+
             if not internal_mode:
-                _LOGGER.error("Unknown fan speed %s for vacuum %s", fan_speed, self.entity_id)
+                _LOGGER.error(
+                    "Unknown fan speed %s for vacuum %s", fan_speed, self.entity_id
+                )
                 return
-            
+
             # Set turbo mode if requested
-            if internal_mode == "turbo" and Capability.robot_cleaner_turbo_mode in self._device.capabilities:
+            if (
+                internal_mode == "turbo"
+                and Capability.robot_cleaner_turbo_mode in self._device.capabilities
+            ):
                 result = await self._device.command(
                     "main",
                     Capability.robot_cleaner_turbo_mode,
                     "setRobotCleanerTurboMode",
-                    ["on"]
+                    ["on"],
                 )
             elif Capability.robot_cleaner_turbo_mode in self._device.capabilities:
                 # Turn off turbo for other modes
                 await self._device.command(
-                    "main", 
+                    "main",
                     Capability.robot_cleaner_turbo_mode,
                     "setRobotCleanerTurboMode",
-                    ["off"]
+                    ["off"],
                 )
-                
+
             # Set cleaning mode
             if Capability.robot_cleaner_cleaning_mode in self._capabilities:
                 result = await self._device.command(
                     "main",
                     Capability.robot_cleaner_cleaning_mode,
                     "setRobotCleanerCleaningMode",
-                    [internal_mode]
+                    [internal_mode],
                 )
             else:
                 result = True  # Turbo mode change was successful
-                
+
             if result:
-                _LOGGER.debug("Successfully set fan speed to %s on vacuum %s", fan_speed, self.entity_id)
+                _LOGGER.debug(
+                    "Successfully set fan speed to %s on vacuum %s",
+                    fan_speed,
+                    self.entity_id,
+                )
                 self.async_write_ha_state()
             else:
-                _LOGGER.error("Failed to set fan speed to %s on vacuum %s", fan_speed, self.entity_id)
-                
+                _LOGGER.error(
+                    "Failed to set fan speed to %s on vacuum %s",
+                    fan_speed,
+                    self.entity_id,
+                )
+
         except Exception as ex:
-            _LOGGER.error("Error setting fan speed on vacuum %s: %s", self.entity_id, ex)
+            _LOGGER.error(
+                "Error setting fan speed on vacuum %s: %s", self.entity_id, ex
+            )
 
     async def async_clean_spot(self, **kwargs: Any) -> None:
         """Start a spot cleaning task."""
@@ -412,16 +455,25 @@ class SmartThingsVacuum(SmartThingsEntity, StateVacuumEntity):
                     "main",
                     Capability.robot_cleaner_cleaning_mode,
                     "setRobotCleanerCleaningMode",
-                    ["spot"]
+                    ["spot"],
                 )
-                
+
                 if result:
-                    _LOGGER.debug("Successfully started spot cleaning on vacuum %s", self.entity_id)
+                    _LOGGER.debug(
+                        "Successfully started spot cleaning on vacuum %s",
+                        self.entity_id,
+                    )
                     self.async_write_ha_state()
                 else:
-                    _LOGGER.error("Failed to start spot cleaning on vacuum %s", self.entity_id)
+                    _LOGGER.error(
+                        "Failed to start spot cleaning on vacuum %s", self.entity_id
+                    )
             else:
-                _LOGGER.error("Spot cleaning not supported on vacuum %s", self.entity_id)
-                
+                _LOGGER.error(
+                    "Spot cleaning not supported on vacuum %s", self.entity_id
+                )
+
         except Exception as ex:
-            _LOGGER.error("Error starting spot cleaning on vacuum %s: %s", self.entity_id, ex)
+            _LOGGER.error(
+                "Error starting spot cleaning on vacuum %s: %s", self.entity_id, ex
+            )

@@ -1,15 +1,15 @@
 """Support for switches through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
 
-from pysmartthings import Capability
-
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN

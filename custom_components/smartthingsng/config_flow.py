@@ -1,36 +1,23 @@
 """Config flow to configure SmartThings."""
-from http import HTTPStatus
-import logging
 
+import logging
+from http import HTTPStatus
+
+import voluptuous as vol
 from aiohttp import ClientResponseError
+from homeassistant import config_entries
+from homeassistant.const import (CONF_ACCESS_TOKEN, CONF_CLIENT_ID,
+                                 CONF_CLIENT_SECRET)
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pysmartthings import APIResponseError, AppOAuth, SmartThings
 from pysmartthings.installedapp import format_install_url
-import voluptuous as vol
 
-from homeassistant import config_entries
-from homeassistant.const import CONF_ACCESS_TOKEN, CONF_CLIENT_ID, CONF_CLIENT_SECRET
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-from .const import (
-    APP_OAUTH_CLIENT_NAME,
-    APP_OAUTH_SCOPES,
-    CONF_APP_ID,
-    CONF_INSTALLED_APP_ID,
-    CONF_LOCATION_ID,
-    CONF_REFRESH_TOKEN,
-    DOMAIN,
-    VAL_UID_MATCHER,
-)
-from .smartapp import (
-    create_app,
-    find_app,
-    format_unique_id,
-    get_webhook_url,
-    setup_smartapp,
-    setup_smartapp_endpoint,
-    update_app,
-    validate_webhook_requirements,
-)
+from .const import (APP_OAUTH_CLIENT_NAME, APP_OAUTH_SCOPES, CONF_APP_ID,
+                    CONF_INSTALLED_APP_ID, CONF_LOCATION_ID,
+                    CONF_REFRESH_TOKEN, DOMAIN, VAL_UID_MATCHER)
+from .smartapp import (create_app, find_app, format_unique_id, get_webhook_url,
+                       setup_smartapp, setup_smartapp_endpoint, update_app,
+                       validate_webhook_requirements)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,11 +88,11 @@ class SmartThingsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Setup end-point
         async def refresh_token_func() -> str:
             return self.access_token
-        
+
         self.api = SmartThings(
             session=async_get_clientsession(self.hass),
             refresh_token_function=refresh_token_func,
-            request_timeout=10
+            request_timeout=10,
         )
         try:
             app = await find_app(self.hass, self.api)

@@ -1,26 +1,21 @@
 """Support for lights through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
 from typing import Any
 
-from pysmartthings import Capability
-
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_TEMP,
-    ATTR_HS_COLOR,
-    ATTR_TRANSITION,
-    ColorMode,
-    LightEntity,
-    LightEntityFeature,
-    brightness_supported,
-)
+import homeassistant.util.color as color_util
+from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_COLOR_TEMP,
+                                            ATTR_HS_COLOR, ATTR_TRANSITION,
+                                            ColorMode, LightEntity,
+                                            LightEntityFeature,
+                                            brightness_supported)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-import homeassistant.util.color as color_util
+from pysmartthings import Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN

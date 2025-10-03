@@ -1,6 +1,7 @@
 """Constants used by the SmartThings component and platforms."""
-from datetime import timedelta
+
 import re
+from datetime import timedelta
 
 from homeassistant.const import Platform
 

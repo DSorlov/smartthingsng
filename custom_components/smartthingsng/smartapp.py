@@ -1,4 +1,5 @@
 """SmartApp functionality to receive cloud-push notifications."""
+
 import asyncio
 import functools
 import logging
@@ -8,50 +9,27 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 from aiohttp import web
-from pysmartapp import Dispatcher, SmartAppManager
-from pysmartapp.const import SETTINGS_APP_ID
-from pysmartthings import (
-    APP_TYPE_WEBHOOK,
-    CAPABILITIES,
-    CLASSIFICATION_AUTOMATION,
-    App,
-    AppOAuth,
-    AppSettings,
-    InstalledAppStatus,
-    SourceType,
-    Subscription,
-    SubscriptionEntity,
-)
-
 from homeassistant.components import cloud, webhook
 from homeassistant.const import CONF_WEBHOOK_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.dispatcher import (
-    async_dispatcher_connect,
-    async_dispatcher_send,
-)
+from homeassistant.helpers.dispatcher import (async_dispatcher_connect,
+                                              async_dispatcher_send)
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.storage import Store
+from pysmartapp import Dispatcher, SmartAppManager
+from pysmartapp.const import SETTINGS_APP_ID
+from pysmartthings import (APP_TYPE_WEBHOOK, CAPABILITIES,
+                           CLASSIFICATION_AUTOMATION, App, AppOAuth,
+                           AppSettings, InstalledAppStatus, SourceType,
+                           Subscription, SubscriptionEntity)
 
-from .const import (
-    APP_NAME_PREFIX,
-    APP_OAUTH_CLIENT_NAME,
-    APP_OAUTH_SCOPES,
-    CONF_CLOUDHOOK_URL,
-    CONF_INSTALLED_APP_ID,
-    CONF_INSTANCE_ID,
-    CONF_REFRESH_TOKEN,
-    DATA_BROKERS,
-    DATA_MANAGER,
-    DOMAIN,
-    IGNORED_CAPABILITIES,
-    SETTINGS_INSTANCE_ID,
-    SIGNAL_SMARTAPP_PREFIX,
-    STORAGE_KEY,
-    STORAGE_VERSION,
-    SUBSCRIPTION_WARNING_LIMIT,
-)
+from .const import (APP_NAME_PREFIX, APP_OAUTH_CLIENT_NAME, APP_OAUTH_SCOPES,
+                    CONF_CLOUDHOOK_URL, CONF_INSTALLED_APP_ID,
+                    CONF_INSTANCE_ID, CONF_REFRESH_TOKEN, DATA_BROKERS,
+                    DATA_MANAGER, DOMAIN, IGNORED_CAPABILITIES,
+                    SETTINGS_INSTANCE_ID, SIGNAL_SMARTAPP_PREFIX, STORAGE_KEY,
+                    STORAGE_VERSION, SUBSCRIPTION_WARNING_LIMIT)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -269,9 +247,11 @@ async def setup_smartapp_endpoint(hass: HomeAssistant, fresh_install: bool):
     }
     _LOGGER.debug(
         "Setup endpoint for %s",
-        cloudhook_url
-        if cloudhook_url
-        else webhook.async_generate_url(hass, config[CONF_WEBHOOK_ID]),
+        (
+            cloudhook_url
+            if cloudhook_url
+            else webhook.async_generate_url(hass, config[CONF_WEBHOOK_ID])
+        ),
     )
 
 
@@ -312,13 +292,14 @@ async def smartapp_sync_subscriptions(
     devices,
 ):
     """Synchronize subscriptions of an installed up."""
+
     async def refresh_token_func() -> str:
         return auth_token
-    
+
     api = SmartThings(
         session=async_get_clientsession(hass),
         refresh_token_function=refresh_token_func,
-        request_timeout=10
+        request_timeout=10,
     )
     tasks = []
 

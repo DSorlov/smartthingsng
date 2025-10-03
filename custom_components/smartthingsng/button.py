@@ -1,15 +1,15 @@
 """Support for SmartThings button entities."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from pysmartthings import Capability
-
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Capability
 
 from . import DeviceBroker
 from .const import DATA_BROKERS, DOMAIN
@@ -29,7 +29,7 @@ CAPABILITY_TO_BUTTON = {
     # Doorbell buttons
     Capability.button: {
         "commands": ["push"],
-        "name": "Push Button", 
+        "name": "Push Button",
         "icon": "mdi:gesture-tap-button",
         "device_class": None,
     },
@@ -40,7 +40,7 @@ CAPABILITY_TO_BUTTON = {
         "icon": "mdi:radiobox-marked",
         "device_class": None,
     },
-    # Emergency buttons  
+    # Emergency buttons
     Capability.panic_alarm: {
         "commands": ["panic"],
         "name": "Panic Button",
@@ -50,7 +50,7 @@ CAPABILITY_TO_BUTTON = {
     # Water leak detector test buttons
     Capability.water_sensor: {
         "commands": ["test"],
-        "name": "Test Water Sensor", 
+        "name": "Test Water Sensor",
         "icon": "mdi:water-alert",
         "device_class": None,
     },
@@ -79,7 +79,7 @@ CAPABILITY_TO_BUTTON = {
     Capability.media_input_source: {
         "commands": ["showInputSource"],
         "name": "Show Input Source",
-        "icon": "mdi:television-guide", 
+        "icon": "mdi:television-guide",
         "device_class": None,
     },
     # Washer/Dryer control buttons
@@ -91,7 +91,7 @@ CAPABILITY_TO_BUTTON = {
     },
     Capability.dryer_operating_state: {
         "commands": ["start", "pause", "stop"],
-        "name": "Dryer Control", 
+        "name": "Dryer Control",
         "icon": "mdi:tumble-dryer",
         "device_class": None,
     },
@@ -106,7 +106,7 @@ CAPABILITY_TO_BUTTON = {
     Capability.oven_operating_state: {
         "commands": ["start", "pause", "stop"],
         "name": "Oven Control",
-        "icon": "mdi:stove", 
+        "icon": "mdi:stove",
         "device_class": None,
     },
     # Robot vacuum control buttons
@@ -127,18 +127,18 @@ async def async_setup_entry(
     """Add button entities for a SmartThings config entry."""
     broker = hass.data[DOMAIN][DATA_BROKERS][config_entry.entry_id]
     buttons = []
-    
+
     for device in broker.devices.values():
         for capability in device.capabilities:
             if capability in CAPABILITY_TO_BUTTON:
                 button_config = CAPABILITY_TO_BUTTON[capability]
-                
+
                 # Create a button for each command in the capability
                 for command in button_config["commands"]:
                     buttons.append(
                         SmartThingsButton(
                             device=device,
-                            capability=capability, 
+                            capability=capability,
                             command=command,
                             name=f"{button_config['name']} - {command.title()}",
                             icon=button_config["icon"],
@@ -188,33 +188,33 @@ class SmartThingsButton(SmartThingsEntity, ButtonEntity):
                 component_id="main",
                 capability=self._capability,
                 command=self._command,
-                args=[]
+                args=[],
             )
-            
+
             _LOGGER.info(
                 "Button pressed: %s executed %s.%s - Result: %s",
                 self._attr_name,
                 self._capability,
                 self._command,
-                result
+                result,
             )
-            
+
         except Exception as ex:
             _LOGGER.error(
                 "Failed to press button %s (%s.%s): %s",
                 self._attr_name,
-                self._capability, 
+                self._capability,
                 self._command,
-                ex
+                ex,
             )
             raise
 
-    @property 
+    @property
     def available(self) -> bool:
         """Return True if the button is available."""
         # Button is available if device is connected and capability is supported
         return (
-            self._device.status.switch_state != "unavailable" 
+            self._device.status.switch_state != "unavailable"
             and self._capability in self._device.capabilities
         )
 

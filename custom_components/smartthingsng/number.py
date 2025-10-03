@@ -1,16 +1,16 @@
 """Support for number entities through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
-
-from pysmartthings import Attribute, Capability
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Attribute, Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN
@@ -72,14 +72,14 @@ async def async_setup_entry(
     """Add number entities for a config entry."""
     broker = hass.data[DOMAIN][DATA_BROKERS][config_entry.entry_id]
     numbers = []
-    
+
     for device in broker.devices.values():
         device_capabilities_for_number = broker.get_assigned(device.device_id, "number")
-        
+
         for capability in device_capabilities_for_number:
             if capability not in CAPABILITY_TO_NUMBER:
                 continue
-            
+
             config = CAPABILITY_TO_NUMBER[capability]
             numbers.append(
                 SmartThingsNumber(
@@ -96,16 +96,14 @@ async def async_setup_entry(
                     config.get("mode", NumberMode.BOX),
                 )
             )
-    
+
     async_add_entities(numbers)
 
 
 def get_capabilities(capabilities: Sequence[str]) -> Sequence[str] | None:
     """Return all capabilities supported if minimum required are present."""
     supported = [
-        capability
-        for capability in CAPABILITY_TO_NUMBER
-        if capability in capabilities
+        capability for capability in CAPABILITY_TO_NUMBER if capability in capabilities
     ]
     return supported if supported else None
 
@@ -146,15 +144,12 @@ class SmartThingsNumber(SmartThingsEntity, NumberEntity):
         # Convert to int if step is 1 (discrete values)
         if self._attr_native_step == 1:
             value = int(value)
-        
+
         # Use the device command to set the value
         result = await self._device.command(
-            "main",
-            self._capability,
-            self._command,
-            [value]
+            "main", self._capability, self._command, [value]
         )
-        
+
         if result:
             # Update the status optimistically
             self._device.status.update_attribute_value(self._attribute, value)
@@ -164,11 +159,11 @@ class SmartThingsNumber(SmartThingsEntity, NumberEntity):
     def native_value(self) -> float | None:
         """Return the current value."""
         value = getattr(self._device.status, self._attribute, None)
-        
+
         if value is not None:
             try:
                 return float(value)
             except (ValueError, TypeError):
                 return None
-        
+
         return None

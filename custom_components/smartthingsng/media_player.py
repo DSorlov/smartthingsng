@@ -1,21 +1,18 @@
 """Support for SmartThings media player entities."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from pysmartthings import Capability
-
-from homeassistant.components.media_player import (
-    BrowseMedia,
-    MediaPlayerEntity,
-    MediaPlayerEntityFeature,
-    MediaPlayerState,
-    MediaType,
-)
+from homeassistant.components.media_player import (BrowseMedia,
+                                                   MediaPlayerEntity,
+                                                   MediaPlayerEntityFeature,
+                                                   MediaPlayerState, MediaType)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Capability
 
 from . import DeviceBroker
 from .const import DATA_BROKERS, DOMAIN
@@ -103,10 +100,10 @@ async def async_setup_entry(
     """Add media player entities for a SmartThings config entry."""
     broker = hass.data[DOMAIN][DATA_BROKERS][config_entry.entry_id]
     media_players = []
-    
+
     for device in broker.devices.values():
         capabilities = device.capabilities
-        
+
         # Check for media player capabilities
         supported_capabilities = get_capabilities(capabilities)
         if supported_capabilities:
@@ -126,7 +123,9 @@ async def async_setup_entry(
 def get_capabilities(capabilities: list[str]) -> list[str] | None:
     """Return supported media player capabilities if any are present."""
     supported = [
-        capability for capability in CAPABILITY_TO_MEDIA_PLAYER if capability in capabilities
+        capability
+        for capability in CAPABILITY_TO_MEDIA_PLAYER
+        if capability in capabilities
     ]
     return supported if supported else None
 
@@ -138,7 +137,7 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
         """Initialize the media player."""
         super().__init__(device)
         self._capabilities = capabilities
-        
+
         # Determine primary capability for naming and features
         if Capability.tv_channel in capabilities:
             self._primary_capability = Capability.tv_channel
@@ -152,12 +151,12 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
         else:
             self._primary_capability = Capability.media_input_source
             self._config = CAPABILITY_TO_MEDIA_PLAYER[Capability.media_input_source]
-            
+
         self._attr_name = f"{device.label} {self._config['name']}"
         self._attr_unique_id = f"{device.device_id}_media_player"
         self._attr_icon = self._config["icon"]
         self._attr_device_class = self._config["device_class"]
-        
+
         # Combine features from all supported capabilities
         self._attr_supported_features = MediaPlayerEntityFeature(0)
         for capability in capabilities:
@@ -169,51 +168,63 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
     def state(self) -> MediaPlayerState | None:
         """Return the state of the media player."""
         # Check various status attributes for state
-        if hasattr(self._device.status, 'switch') and self._device.status.switch == "off":
+        if (
+            hasattr(self._device.status, "switch")
+            and self._device.status.switch == "off"
+        ):
             return MediaPlayerState.OFF
-        
+
         # TV channel state
-        if hasattr(self._device.status, 'tv_channel_name') and self._device.status.tv_channel_name:
+        if (
+            hasattr(self._device.status, "tv_channel_name")
+            and self._device.status.tv_channel_name
+        ):
             return MediaPlayerState.ON
-            
-        # Media playback state  
-        if hasattr(self._device.status, 'playback_status'):
+
+        # Media playback state
+        if hasattr(self._device.status, "playback_status"):
             st_state = self._device.status.playback_status
             return SMARTTHINGS_TO_HA_STATE.get(st_state, MediaPlayerState.IDLE)
-            
+
         # Audio volume indicates device is on
-        if hasattr(self._device.status, 'volume') and self._device.status.volume is not None:
+        if (
+            hasattr(self._device.status, "volume")
+            and self._device.status.volume is not None
+        ):
             return MediaPlayerState.ON
-            
+
         return MediaPlayerState.IDLE
 
     @property
     def volume_level(self) -> float | None:
         """Volume level of the media player (0..1)."""
-        if hasattr(self._device.status, 'volume') and self._device.status.volume is not None:
+        if (
+            hasattr(self._device.status, "volume")
+            and self._device.status.volume is not None
+        ):
             return self._device.status.volume / 100.0
         return None
 
     @property
     def is_volume_muted(self) -> bool | None:
         """Boolean if volume is currently muted."""
-        if hasattr(self._device.status, 'mute'):
+        if hasattr(self._device.status, "mute"):
             return self._device.status.mute == "muted"
         return None
 
     @property
     def source(self) -> str | None:
         """Name of the current input source."""
-        if hasattr(self._device.status, 'input_source'):
+        if hasattr(self._device.status, "input_source"):
             return self._device.status.input_source
-        elif hasattr(self._device.status, 'tv_channel_name'):
+        elif hasattr(self._device.status, "tv_channel_name"):
             return self._device.status.tv_channel_name
         return None
 
     @property
     def source_list(self) -> list[str] | None:
         """List of available input sources."""
-        if hasattr(self._device.status, 'supported_input_sources'):
+        if hasattr(self._device.status, "supported_input_sources"):
             return self._device.status.supported_input_sources
         # Common TV input sources as fallback
         return ["HDMI1", "HDMI2", "HDMI3", "HDMI4", "USB", "TV", "AV"]
@@ -221,30 +232,33 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
     @property
     def media_content_type(self) -> MediaType | str | None:
         """Content type of current playing media."""
-        if hasattr(self._device.status, 'tv_channel_name') and self._device.status.tv_channel_name:
+        if (
+            hasattr(self._device.status, "tv_channel_name")
+            and self._device.status.tv_channel_name
+        ):
             return MediaType.CHANNEL
         return MediaType.MUSIC  # Default for audio devices
 
     @property
     def media_title(self) -> str | None:
         """Title of current playing media."""
-        if hasattr(self._device.status, 'tv_channel_name'):
+        if hasattr(self._device.status, "tv_channel_name"):
             return self._device.status.tv_channel_name
-        elif hasattr(self._device.status, 'media_title'):
+        elif hasattr(self._device.status, "media_title"):
             return self._device.status.media_title
         return None
 
     @property
     def media_artist(self) -> str | None:
         """Artist of current playing media."""
-        if hasattr(self._device.status, 'media_artist'):
+        if hasattr(self._device.status, "media_artist"):
             return self._device.status.media_artist
         return None
 
     @property
     def media_channel(self) -> str | None:
         """Channel currently playing."""
-        if hasattr(self._device.status, 'tv_channel'):
+        if hasattr(self._device.status, "tv_channel"):
             return self._device.status.tv_channel
         return None
 
@@ -266,9 +280,13 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
         """Set volume level, range 0..1."""
         if Capability.audio_volume in self._capabilities:
             volume_percent = int(volume * 100)
-            await self._device.command("main", Capability.audio_volume, "setVolume", [volume_percent])
+            await self._device.command(
+                "main", Capability.audio_volume, "setVolume", [volume_percent]
+            )
         else:
-            _LOGGER.warning("Device %s does not support volume control", self._device.label)
+            _LOGGER.warning(
+                "Device %s does not support volume control", self._device.label
+            )
 
     async def async_volume_up(self) -> None:
         """Volume up the media player."""
@@ -278,11 +296,13 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
             _LOGGER.warning("Device %s does not support volume up", self._device.label)
 
     async def async_volume_down(self) -> None:
-        """Volume down the media player.""" 
+        """Volume down the media player."""
         if Capability.audio_volume in self._capabilities:
             await self._device.command("main", Capability.audio_volume, "volumeDown")
         else:
-            _LOGGER.warning("Device %s does not support volume down", self._device.label)
+            _LOGGER.warning(
+                "Device %s does not support volume down", self._device.label
+            )
 
     async def async_mute_volume(self, mute: bool) -> None:
         """Mute the volume."""
@@ -329,20 +349,30 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
         elif Capability.tv_channel in self._capabilities:
             await self._device.command("main", Capability.tv_channel, "channelDown")
         else:
-            _LOGGER.warning("Device %s does not support previous track", self._device.label)
+            _LOGGER.warning(
+                "Device %s does not support previous track", self._device.label
+            )
 
     async def async_select_source(self, source: str) -> None:
         """Select input source."""
         if Capability.media_input_source in self._capabilities:
-            await self._device.command("main", Capability.media_input_source, "setInputSource", [source])
+            await self._device.command(
+                "main", Capability.media_input_source, "setInputSource", [source]
+            )
         elif Capability.tv_channel in self._capabilities:
             # Try to set channel by name or number
             if source.isdigit():
-                await self._device.command("main", Capability.tv_channel, "setTvChannel", [source])
+                await self._device.command(
+                    "main", Capability.tv_channel, "setTvChannel", [source]
+                )
             else:
-                await self._device.command("main", Capability.tv_channel, "setTvChannelName", [source])
+                await self._device.command(
+                    "main", Capability.tv_channel, "setTvChannelName", [source]
+                )
         else:
-            _LOGGER.warning("Device %s does not support source selection", self._device.label)
+            _LOGGER.warning(
+                "Device %s does not support source selection", self._device.label
+            )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -353,28 +383,29 @@ class SmartThingsMediaPlayer(SmartThingsEntity, MediaPlayerEntity):
             "device_type": self._device.type,
             "device_id": self._device.device_id,
         }
-        
+
         # Add relevant status attributes
-        if hasattr(self._device.status, 'tv_channel'):
+        if hasattr(self._device.status, "tv_channel"):
             attributes["tv_channel"] = self._device.status.tv_channel
-        if hasattr(self._device.status, 'input_source'):
+        if hasattr(self._device.status, "input_source"):
             attributes["input_source"] = self._device.status.input_source
-        if hasattr(self._device.status, 'supported_input_sources'):
-            attributes["supported_input_sources"] = self._device.status.supported_input_sources
-        if hasattr(self._device.status, 'volume'):
+        if hasattr(self._device.status, "supported_input_sources"):
+            attributes["supported_input_sources"] = (
+                self._device.status.supported_input_sources
+            )
+        if hasattr(self._device.status, "volume"):
             attributes["volume"] = self._device.status.volume
-        if hasattr(self._device.status, 'mute'):
+        if hasattr(self._device.status, "mute"):
             attributes["mute"] = self._device.status.mute
-        if hasattr(self._device.status, 'playback_status'):
+        if hasattr(self._device.status, "playback_status"):
             attributes["playback_status"] = self._device.status.playback_status
-            
+
         return attributes
 
     @property
     def available(self) -> bool:
         """Return True if the media player is available."""
         # Media player is available if device is connected
-        return (
-            self._device.status.switch_state != "unavailable" 
-            and any(cap in self._device.capabilities for cap in self._capabilities)
+        return self._device.status.switch_state != "unavailable" and any(
+            cap in self._device.capabilities for cap in self._capabilities
         )

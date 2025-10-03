@@ -1,21 +1,19 @@
 """Support for fans through the SmartThings cloud API."""
+
 from __future__ import annotations
 
-from collections.abc import Sequence
 import math
+from collections.abc import Sequence
 from typing import Any
-
-from pysmartthings import Capability
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util.percentage import (
-    percentage_to_ranged_value,
-    ranged_value_to_percentage,
-)
+from homeassistant.util.percentage import (percentage_to_ranged_value,
+                                           ranged_value_to_percentage)
 from homeassistant.util.scaling import int_states_in_range
+from pysmartthings import Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN

@@ -1,26 +1,21 @@
 """Support for covers through the SmartThings cloud API."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
 
-from pysmartthings import Attribute, Capability
-
-from homeassistant.components.cover import (
-    ATTR_POSITION,
-    DOMAIN as COVER_DOMAIN,
-    STATE_CLOSED,
-    STATE_CLOSING,
-    STATE_OPEN,
-    STATE_OPENING,
-    CoverDeviceClass,
-    CoverEntity,
-    CoverEntityFeature,
-)
+from homeassistant.components.cover import ATTR_POSITION
+from homeassistant.components.cover import DOMAIN as COVER_DOMAIN
+from homeassistant.components.cover import (STATE_CLOSED, STATE_CLOSING,
+                                            STATE_OPEN, STATE_OPENING,
+                                            CoverDeviceClass, CoverEntity,
+                                            CoverEntityFeature)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_BATTERY_LEVEL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from pysmartthings import Attribute, Capability
 
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN

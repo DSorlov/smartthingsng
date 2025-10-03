@@ -1,56 +1,42 @@
 """Support for SmartThings Cloud."""
+
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
-from http import HTTPStatus
 import importlib
 import logging
+from collections.abc import Iterable
+from http import HTTPStatus
 
-from aiohttp.client_exceptions import ClientConnectionError, ClientResponseError
-from pysmartapp.event import EVENT_TYPE_DEVICE
-from pysmartthings import Attribute, Capability, SmartThings
-from pysmartthings.device import DeviceEntity
-
+import voluptuous as vol
+from aiohttp.client_exceptions import (ClientConnectionError,
+                                       ClientResponseError)
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import CONF_ACCESS_TOKEN, CONF_CLIENT_ID, CONF_CLIENT_SECRET
+from homeassistant.const import (CONF_ACCESS_TOKEN, CONF_CLIENT_ID,
+                                 CONF_CLIENT_SECRET)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import voluptuous as vol
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.dispatcher import (
-    async_dispatcher_connect,
-    async_dispatcher_send,
-)
+from homeassistant.helpers.dispatcher import (async_dispatcher_connect,
+                                              async_dispatcher_send)
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
+from pysmartapp.event import EVENT_TYPE_DEVICE
+from pysmartthings import Attribute, Capability, SmartThings
+from pysmartthings.device import DeviceEntity
 
 from .config_flow import SmartThingsFlowHandler  # noqa: F401
-from .const import (
-    CONF_APP_ID,
-    CONF_INSTALLED_APP_ID,
-    CONF_LOCATION_ID,
-    CONF_REFRESH_TOKEN,
-    DATA_BROKERS,
-    DATA_MANAGER,
-    DOMAIN,
-    EVENT_BUTTON,
-    PLATFORMS,
-    SIGNAL_SMARTTHINGS_UPDATE,
-    TOKEN_REFRESH_INTERVAL,
-)
-from .smartapp import (
-    format_unique_id,
-    setup_smartapp,
-    setup_smartapp_endpoint,
-    smartapp_sync_subscriptions,
-    unload_smartapp_endpoint,
-    validate_installed_app,
-    validate_webhook_requirements,
-)
+from .const import (CONF_APP_ID, CONF_INSTALLED_APP_ID, CONF_LOCATION_ID,
+                    CONF_REFRESH_TOKEN, DATA_BROKERS, DATA_MANAGER, DOMAIN,
+                    EVENT_BUTTON, PLATFORMS, SIGNAL_SMARTTHINGS_UPDATE,
+                    TOKEN_REFRESH_INTERVAL)
+from .smartapp import (format_unique_id, setup_smartapp,
+                       setup_smartapp_endpoint, smartapp_sync_subscriptions,
+                       unload_smartapp_endpoint, validate_installed_app,
+                       validate_webhook_requirements)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,11 +92,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def refresh_token_func() -> str:
         """Get current access token from config entry."""
         return entry.data[CONF_ACCESS_TOKEN]
-    
+
     api = SmartThings(
         session=async_get_clientsession(hass),
         refresh_token_function=refresh_token_func,
-        request_timeout=10
+        request_timeout=10,
     )
 
     remove_entry = False
@@ -205,10 +191,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    
+
     # Register services for this integration
     await async_register_services(hass)
-    
+
     return True
 
 
@@ -241,13 +227,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Perform clean-up when entry is being removed."""
+
     async def refresh_token_func() -> str:
         return entry.data[CONF_ACCESS_TOKEN]
-    
+
     api = SmartThings(
         session=async_get_clientsession(hass),
         refresh_token_function=refresh_token_func,
-        request_timeout=10
+        request_timeout=10,
     )
 
     # Remove the installed_app, which if already removed raises a HTTPStatus.FORBIDDEN error.
@@ -295,11 +282,11 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register services for SmartThings NG."""
-    
+
     # Only register services once
     if hass.services.has_service(DOMAIN, "send_command"):
         return
-    
+
     async def send_command_service(call):
         """Send a custom command to a SmartThings device."""
         device_id = call.data.get("device_id")
@@ -307,56 +294,63 @@ async def async_register_services(hass: HomeAssistant) -> None:
         capability = call.data.get("capability")
         command = call.data.get("command")
         arguments = call.data.get("arguments", [])
-        
+
         if not all([device_id, capability, command]):
             _LOGGER.error("send_command requires device_id, capability, and command")
             return
-        
+
         # Get the first entry to access the API
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
             _LOGGER.error("No SmartThings integration configured")
             return
-            
+
         entry = entries[0]  # Use the first entry
-        
+
         try:
             # Create API instance
             async def refresh_token_func() -> str:
                 return entry.data[CONF_ACCESS_TOKEN]
-            
+
             api = SmartThings(
                 session=async_get_clientsession(hass),
                 refresh_token_function=refresh_token_func,
-                request_timeout=10
+                request_timeout=10,
             )
-            
+
             # Send the command
             await api.execute_device_command(
                 device_id=device_id,
                 capability=capability,
                 command=command,
                 component=component_id,
-                argument=arguments
+                argument=arguments,
             )
             _LOGGER.info(
                 "Command sent to %s: %s.%s(%s)",
-                device_id, capability, command, arguments
+                device_id,
+                capability,
+                command,
+                arguments,
             )
         except Exception as ex:
             _LOGGER.error(
                 "Failed to send command to %s: %s.%s(%s) - Error: %s",
-                device_id, capability, command, arguments, ex
+                device_id,
+                capability,
+                command,
+                arguments,
+                ex,
             )
-    
+
     async def refresh_device_service(call):
         """Refresh a SmartThings device status."""
         device_id = call.data.get("device_id")
-        
+
         if not device_id:
             _LOGGER.error("refresh_device requires device_id")
             return
-        
+
         # Find the device in all brokers
         device = None
         for entry in hass.config_entries.async_entries(DOMAIN):
@@ -364,82 +358,83 @@ async def async_register_services(hass: HomeAssistant) -> None:
             if broker and device_id in broker.devices:
                 device = broker.devices[device_id]
                 break
-        
+
         if not device:
             _LOGGER.error("Device %s not found", device_id)
             return
-        
+
         try:
             await device.status.refresh()
             _LOGGER.info("Refreshed device %s status", device_id)
-            
+
             # Trigger update for all entities of this device
             from homeassistant.helpers.dispatcher import async_dispatcher_send
+
             async_dispatcher_send(hass, SIGNAL_SMARTTHINGS_UPDATE, {device_id})
-            
+
         except Exception as ex:
             _LOGGER.error("Failed to refresh device %s: %s", device_id, ex)
-    
+
     async def execute_scene_service(call):
         """Execute a SmartThings scene."""
         scene_id = call.data.get("scene_id")
-        
+
         if not scene_id:
             _LOGGER.error("execute_scene requires scene_id")
             return
-        
+
         # Get the first entry to access the API
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
             _LOGGER.error("No SmartThings integration configured")
             return
-            
+
         entry = entries[0]  # Use the first entry
-        
+
         try:
             # Create API instance
             async def refresh_token_func() -> str:
                 return entry.data[CONF_ACCESS_TOKEN]
-            
+
             api = SmartThings(
                 session=async_get_clientsession(hass),
                 refresh_token_function=refresh_token_func,
-                request_timeout=10
+                request_timeout=10,
             )
-            
+
             # Execute the scene
             await api.execute_scene(scene_id)
             _LOGGER.info("Executed scene %s", scene_id)
         except Exception as ex:
             _LOGGER.error("Failed to execute scene %s: %s", scene_id, ex)
-    
+
     async def get_diagnostics_service(call):
         """Get comprehensive SmartThings integration diagnostics."""
         import time
         from datetime import datetime, timezone
-        
+
         diagnostics = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "integration_version": "1.7.0",
-            "pysmartthings_version": getattr(SmartThings, '__version__', 'unknown'),
+            "pysmartthings_version": getattr(SmartThings, "__version__", "unknown"),
             "home_assistant_version": hass.config.version,
-            "entries": []
+            "entries": [],
         }
-        
+
         for entry in hass.config_entries.async_entries(DOMAIN):
             broker = hass.data[DOMAIN][DATA_BROKERS].get(entry.entry_id)
             if not broker:
                 continue
-                
+
             entry_diag = {
                 "entry_id": entry.entry_id,
                 "title": entry.title,
                 "state": entry.state.value,
                 "device_count": len(broker.devices),
                 "scene_count": len(broker.scenes),
-                "devices": []
+                "devices": [],
             }
-            
+
             for device in broker.devices.values():
                 device_diag = {
                     "device_id": device.device_id,
@@ -450,36 +445,40 @@ async def async_register_services(hass: HomeAssistant) -> None:
                     "firmware": device.status.ocf_firmware_version,
                     "hardware": device.status.ocf_hardware_version,
                     "capabilities": list(device.capabilities),
-                    "components": list(device.components.keys()) if device.components else [],
+                    "components": (
+                        list(device.components.keys()) if device.components else []
+                    ),
                     "status_attributes": len(device.status.__dict__),
-                    "last_update": getattr(device.status, '_last_update', None)
+                    "last_update": getattr(device.status, "_last_update", None),
                 }
-                
+
                 # Add health indicators
                 try:
                     device_diag["health"] = {
-                        "reachable": hasattr(device.status, 'switch_state') and 
-                                   device.status.switch_state != "unavailable",
-                        "battery_level": getattr(device.status, 'battery', None),
-                        "signal_strength": getattr(device.status, 'lqi', None) or 
-                                         getattr(device.status, 'rssi', None)
+                        "reachable": hasattr(device.status, "switch_state")
+                        and device.status.switch_state != "unavailable",
+                        "battery_level": getattr(device.status, "battery", None),
+                        "signal_strength": getattr(device.status, "lqi", None)
+                        or getattr(device.status, "rssi", None),
                     }
                 except Exception as ex:
                     device_diag["health"] = {"error": str(ex)}
-                
+
                 entry_diag["devices"].append(device_diag)
-            
+
             diagnostics["entries"].append(entry_diag)
-        
+
         # Store diagnostics in hass data for retrieval
         if "diagnostics" not in hass.data[DOMAIN]:
             hass.data[DOMAIN]["diagnostics"] = {}
         hass.data[DOMAIN]["diagnostics"]["last_report"] = diagnostics
-        
-        _LOGGER.info("Generated diagnostics report with %d entries, %d total devices", 
-                     len(diagnostics["entries"]), 
-                     sum(len(e["devices"]) for e in diagnostics["entries"]))
-        
+
+        _LOGGER.info(
+            "Generated diagnostics report with %d entries, %d total devices",
+            len(diagnostics["entries"]),
+            sum(len(e["devices"]) for e in diagnostics["entries"]),
+        )
+
         # Optionally create a persistent notification
         if call.data.get("create_notification", False):
             hass.components.persistent_notification.create(
@@ -489,44 +488,46 @@ async def async_register_services(hass: HomeAssistant) -> None:
                 f"Total Devices: {sum(len(e['devices']) for e in diagnostics['entries'])}\n"
                 f"Generated: {diagnostics['timestamp']}",
                 title="SmartThings NG Diagnostics",
-                notification_id="smartthingsng_diagnostics"
+                notification_id="smartthingsng_diagnostics",
             )
-    
+
     async def device_health_check_service(call):
         """Perform comprehensive health check on SmartThings devices."""
         import time
         from datetime import datetime, timezone
-        
+
         device_id = call.data.get("device_id")
         check_all = call.data.get("check_all", False)
-        
+
         if not device_id and not check_all:
-            _LOGGER.error("device_health_check requires either device_id or check_all=true")
+            _LOGGER.error(
+                "device_health_check requires either device_id or check_all=true"
+            )
             return
-        
+
         health_results = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "checks_performed": []
+            "checks_performed": [],
         }
-        
+
         devices_to_check = []
-        
+
         # Collect devices to check
         for entry in hass.config_entries.async_entries(DOMAIN):
             broker = hass.data[DOMAIN][DATA_BROKERS].get(entry.entry_id)
             if not broker:
                 continue
-                
+
             if check_all:
                 devices_to_check.extend(broker.devices.values())
             elif device_id and device_id in broker.devices:
                 devices_to_check.append(broker.devices[device_id])
                 break
-        
+
         if not devices_to_check:
             _LOGGER.error("No devices found to check health")
             return
-        
+
         for device in devices_to_check:
             start_time = time.time()
             health_check = {
@@ -534,38 +535,38 @@ async def async_register_services(hass: HomeAssistant) -> None:
                 "label": device.label,
                 "checks": {},
                 "overall_health": "unknown",
-                "check_duration_ms": 0
+                "check_duration_ms": 0,
             }
-            
+
             try:
                 # Test basic connectivity
                 original_status = dict(device.status.__dict__)
                 await device.status.refresh()
                 refresh_time = time.time() - start_time
-                
+
                 health_check["checks"]["connectivity"] = {
                     "status": "ok",
                     "response_time_ms": round(refresh_time * 1000, 2),
-                    "last_successful_refresh": datetime.now(timezone.utc).isoformat()
+                    "last_successful_refresh": datetime.now(timezone.utc).isoformat(),
                 }
-                
+
                 # Check device availability
                 is_available = True
                 availability_reason = "device_responsive"
-                
-                if hasattr(device.status, 'switch_state'):
+
+                if hasattr(device.status, "switch_state"):
                     if device.status.switch_state == "unavailable":
                         is_available = False
                         availability_reason = "device_unavailable"
-                
+
                 health_check["checks"]["availability"] = {
                     "status": "ok" if is_available else "error",
                     "available": is_available,
-                    "reason": availability_reason
+                    "reason": availability_reason,
                 }
-                
+
                 # Check battery health (if applicable)
-                if hasattr(device.status, 'battery'):
+                if hasattr(device.status, "battery"):
                     battery_level = device.status.battery
                     battery_health = "good"
                     if battery_level is not None:
@@ -575,15 +576,19 @@ async def async_register_services(hass: HomeAssistant) -> None:
                             battery_health = "low"
                         elif battery_level < 50:
                             battery_health = "medium"
-                    
+
                     health_check["checks"]["battery"] = {
-                        "status": "warning" if battery_health in ["critical", "low"] else "ok",
+                        "status": (
+                            "warning" if battery_health in ["critical", "low"] else "ok"
+                        ),
                         "level": battery_level,
-                        "health": battery_health
+                        "health": battery_health,
                     }
-                
+
                 # Check signal strength (if applicable)
-                signal_strength = getattr(device.status, 'lqi', None) or getattr(device.status, 'rssi', None)
+                signal_strength = getattr(device.status, "lqi", None) or getattr(
+                    device.status, "rssi", None
+                )
                 if signal_strength is not None:
                     signal_health = "good"
                     if isinstance(signal_strength, (int, float)):
@@ -591,111 +596,156 @@ async def async_register_services(hass: HomeAssistant) -> None:
                             signal_health = "poor"
                         elif signal_strength < 60:
                             signal_health = "fair"
-                    
+
                     health_check["checks"]["signal"] = {
                         "status": "warning" if signal_health == "poor" else "ok",
                         "strength": signal_strength,
-                        "quality": signal_health
+                        "quality": signal_health,
                     }
-                
+
                 # Determine overall health
-                error_checks = [c for c in health_check["checks"].values() if c.get("status") == "error"]
-                warning_checks = [c for c in health_check["checks"].values() if c.get("status") == "warning"]
-                
+                error_checks = [
+                    c
+                    for c in health_check["checks"].values()
+                    if c.get("status") == "error"
+                ]
+                warning_checks = [
+                    c
+                    for c in health_check["checks"].values()
+                    if c.get("status") == "warning"
+                ]
+
                 if error_checks:
                     health_check["overall_health"] = "error"
                 elif warning_checks:
-                    health_check["overall_health"] = "warning"  
+                    health_check["overall_health"] = "warning"
                 else:
                     health_check["overall_health"] = "ok"
-                
+
             except Exception as ex:
                 health_check["checks"]["connectivity"] = {
                     "status": "error",
                     "error": str(ex),
-                    "last_error": datetime.now(timezone.utc).isoformat()
+                    "last_error": datetime.now(timezone.utc).isoformat(),
                 }
                 health_check["overall_health"] = "error"
-            
-            health_check["check_duration_ms"] = round((time.time() - start_time) * 1000, 2)
+
+            health_check["check_duration_ms"] = round(
+                (time.time() - start_time) * 1000, 2
+            )
             health_results["checks_performed"].append(health_check)
-        
+
         # Store health results
         if "diagnostics" not in hass.data[DOMAIN]:
             hass.data[DOMAIN]["diagnostics"] = {}
         hass.data[DOMAIN]["diagnostics"]["last_health_check"] = health_results
-        
+
         # Summary logging
         total_devices = len(health_results["checks_performed"])
-        healthy_devices = len([c for c in health_results["checks_performed"] if c["overall_health"] == "ok"])
-        warning_devices = len([c for c in health_results["checks_performed"] if c["overall_health"] == "warning"])
-        error_devices = len([c for c in health_results["checks_performed"] if c["overall_health"] == "error"])
-        
-        _LOGGER.info("Device health check complete: %d total, %d healthy, %d warnings, %d errors",
-                     total_devices, healthy_devices, warning_devices, error_devices)
-        
+        healthy_devices = len(
+            [
+                c
+                for c in health_results["checks_performed"]
+                if c["overall_health"] == "ok"
+            ]
+        )
+        warning_devices = len(
+            [
+                c
+                for c in health_results["checks_performed"]
+                if c["overall_health"] == "warning"
+            ]
+        )
+        error_devices = len(
+            [
+                c
+                for c in health_results["checks_performed"]
+                if c["overall_health"] == "error"
+            ]
+        )
+
+        _LOGGER.info(
+            "Device health check complete: %d total, %d healthy, %d warnings, %d errors",
+            total_devices,
+            healthy_devices,
+            warning_devices,
+            error_devices,
+        )
+
         if call.data.get("create_notification", False):
             hass.components.persistent_notification.create(
                 f"SmartThings NG Device Health Check Complete\n\n"
                 f"Total Devices: {total_devices}\n"
                 f"Healthy: {healthy_devices}\n"
-                f"Warnings: {warning_devices}\n" 
+                f"Warnings: {warning_devices}\n"
                 f"Errors: {error_devices}\n"
                 f"Generated: {health_results['timestamp']}",
                 title="SmartThings NG Health Check",
-                notification_id="smartthingsng_health_check"
+                notification_id="smartthingsng_health_check",
             )
-    
+
     # Register the services
     hass.services.async_register(
         DOMAIN,
         "send_command",
         send_command_service,
-        schema=vol.Schema({
-            vol.Required("device_id"): cv.string,
-            vol.Optional("component_id", default="main"): cv.string,
-            vol.Required("capability"): cv.string,
-            vol.Required("command"): cv.string,
-            vol.Optional("arguments", default=[]): vol.All(cv.ensure_list, [vol.Any(str, int, float, bool)]),
-        })
+        schema=vol.Schema(
+            {
+                vol.Required("device_id"): cv.string,
+                vol.Optional("component_id", default="main"): cv.string,
+                vol.Required("capability"): cv.string,
+                vol.Required("command"): cv.string,
+                vol.Optional("arguments", default=[]): vol.All(
+                    cv.ensure_list, [vol.Any(str, int, float, bool)]
+                ),
+            }
+        ),
     )
-    
+
     hass.services.async_register(
         DOMAIN,
         "refresh_device",
         refresh_device_service,
-        schema=vol.Schema({
-            vol.Required("device_id"): cv.string,
-        })
+        schema=vol.Schema(
+            {
+                vol.Required("device_id"): cv.string,
+            }
+        ),
     )
-    
+
     hass.services.async_register(
         DOMAIN,
         "execute_scene",
         execute_scene_service,
-        schema=vol.Schema({
-            vol.Required("scene_id"): cv.string,
-        })
+        schema=vol.Schema(
+            {
+                vol.Required("scene_id"): cv.string,
+            }
+        ),
     )
-    
+
     hass.services.async_register(
         DOMAIN,
         "get_diagnostics",
         get_diagnostics_service,
-        schema=vol.Schema({
-            vol.Optional("create_notification", default=False): cv.boolean,
-        })
+        schema=vol.Schema(
+            {
+                vol.Optional("create_notification", default=False): cv.boolean,
+            }
+        ),
     )
-    
+
     hass.services.async_register(
         DOMAIN,
         "device_health_check",
         device_health_check_service,
-        schema=vol.Schema({
-            vol.Optional("device_id"): cv.string,
-            vol.Optional("check_all", default=False): cv.boolean,
-            vol.Optional("create_notification", default=False): cv.boolean,
-        })
+        schema=vol.Schema(
+            {
+                vol.Optional("device_id"): cv.string,
+                vol.Optional("check_all", default=False): cv.boolean,
+                vol.Optional("create_notification", default=False): cv.boolean,
+            }
+        ),
     )
 
 
@@ -867,7 +917,7 @@ class SmartThingsEntity(Entity):
             hw_version=device.status.ocf_hardware_version,
             sw_version=device.status.ocf_firmware_version,
         )
-        
+
         # Enhanced diagnostic tracking
         self._last_update_time = None
         self._update_count = 0
@@ -878,7 +928,7 @@ class SmartThingsEntity(Entity):
     def available(self) -> bool:
         """Return True if entity is available."""
         # Enhanced availability check with diagnostic info
-        if hasattr(self._device.status, 'switch_state'):
+        if hasattr(self._device.status, "switch_state"):
             return self._device.status.switch_state != "unavailable"
         return True
 
@@ -886,7 +936,7 @@ class SmartThingsEntity(Entity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return enhanced diagnostic state attributes."""
         from datetime import datetime, timezone
-        
+
         attributes = {
             # Core device information
             "device_id": self._device.device_id,
@@ -895,25 +945,26 @@ class SmartThingsEntity(Entity):
             "model": self._device.status.ocf_model_number,
             "firmware_version": self._device.status.ocf_firmware_version,
             "hardware_version": self._device.status.ocf_hardware_version,
-            
             # Capability information
             "capabilities": list(self._device.capabilities),
             "capability_count": len(self._device.capabilities),
-            "components": list(self._device.components.keys()) if self._device.components else [],
-            
+            "components": (
+                list(self._device.components.keys()) if self._device.components else []
+            ),
             # Diagnostic information
             "integration_version": "1.7.0",
-            "last_update": self._last_update_time.isoformat() if self._last_update_time else None,
+            "last_update": (
+                self._last_update_time.isoformat() if self._last_update_time else None
+            ),
             "update_count": self._update_count,
             "error_count": self._error_count,
             "last_error": self._last_error,
-            
             # Health indicators
             "health_status": self._get_health_status(),
         }
-        
+
         # Add battery information if available
-        if hasattr(self._device.status, 'battery'):
+        if hasattr(self._device.status, "battery"):
             battery_level = self._device.status.battery
             attributes["battery_level"] = battery_level
             if battery_level is not None:
@@ -925,9 +976,11 @@ class SmartThingsEntity(Entity):
                     attributes["battery_health"] = "medium"
                 else:
                     attributes["battery_health"] = "good"
-        
+
         # Add signal strength if available
-        signal_strength = getattr(self._device.status, 'lqi', None) or getattr(self._device.status, 'rssi', None)
+        signal_strength = getattr(self._device.status, "lqi", None) or getattr(
+            self._device.status, "rssi", None
+        )
         if signal_strength is not None:
             attributes["signal_strength"] = signal_strength
             if isinstance(signal_strength, (int, float)):
@@ -937,37 +990,43 @@ class SmartThingsEntity(Entity):
                     attributes["signal_quality"] = "fair"
                 else:
                     attributes["signal_quality"] = "good"
-        
+
         return attributes
 
     def _get_health_status(self) -> str:
         """Get overall health status of the device."""
         if not self.available:
             return "unavailable"
-        
+
         # Check for recent errors
         if self._error_count > 0 and self._last_error:
             return "error"
-        
+
         # Check battery health
-        if hasattr(self._device.status, 'battery'):
+        if hasattr(self._device.status, "battery"):
             battery_level = self._device.status.battery
             if battery_level is not None and battery_level < 10:
                 return "critical"
             elif battery_level is not None and battery_level < 25:
                 return "warning"
-        
+
         # Check signal strength
-        signal_strength = getattr(self._device.status, 'lqi', None) or getattr(self._device.status, 'rssi', None)
-        if signal_strength is not None and isinstance(signal_strength, (int, float)) and signal_strength < 30:
+        signal_strength = getattr(self._device.status, "lqi", None) or getattr(
+            self._device.status, "rssi", None
+        )
+        if (
+            signal_strength is not None
+            and isinstance(signal_strength, (int, float))
+            and signal_strength < 30
+        ):
             return "warning"
-        
+
         return "ok"
 
     async def async_update_ha_state(self, force_refresh: bool = False) -> None:
         """Update Home Assistant state with diagnostic tracking."""
         from datetime import datetime, timezone
-        
+
         try:
             self._last_update_time = datetime.now(timezone.utc)
             self._update_count += 1
